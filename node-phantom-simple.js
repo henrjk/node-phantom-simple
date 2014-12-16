@@ -67,6 +67,7 @@ exports.create = function (callback, options) {
         }
         args = args.concat([__dirname + '/bridge.js']);
 
+        console.log('spawning:' + options.phantomPath, util.inspect(args)); 
         var phantom = spawn(options.phantomPath, args);
 
         // Ensure that the child process is closed when this process dies
@@ -108,12 +109,44 @@ exports.create = function (callback, options) {
             exitCode = code;
         });
 
+        var re = /(?:127\.0\.0\.1|localhost):(\d+)/ig, match;
+
+        function grepPid(cmd, ports, count, callback) {
+                exec(cmd, function (err, stdout, stderr) {
+                    if (err !== null) {
+                        phantom.kill();
+                        return callback("Error executing command to extract phantom ports: " + util.inspect(err));
+                    }
+                    var port;
+                    while (match = re.exec(stdout)) {
+                        if (ports.indexOf(match[1]) == -1) {
+                            port = match[1];
+                        }
+                    }
+
+                    if (!port) {
+                      if (count === 3) {
+                        phantom.kill();
+                        return callback("Error extracting port from: " + stdout);
+                      } else {
+                        console.log("Retrying to obtain phantom port.");
+                        grepPid(cmd, count++, callback);
+                      }
+                    }
+
+                    callback(null, phantom, port);
+                });
+         }
+
+
         // Wait for "Ready" line
         phantom.stdout.once('data', function (data) {
             // setup normal listener now
             phantom.stdout.on('data', function (data) {
                 return console.log('phantom stdout: '+data);
             });
+
+            console.log('phantom stdout once: ' + data);
             
             var matches = data.toString().match(/Ready \[(\d+)\]/);
             if (!matches) {
@@ -159,20 +192,29 @@ exports.create = function (callback, options) {
                 if (err !== null) {
                     // This can happen if grep finds no matching lines, so ignore it.
                     stdout = '';
+                    debugger;
+                    console.log('' + my_pid_command + ' ignoring err: ' + util.inspect(err, { depth: 99}));
+                } else {
+                    console.log('' + my_pid_command);
+                    console.log('my_pid_command stdout:' + stdout);
                 }
-                var re = /(?:127\.0\.0\.1|localhost):(\d+)/ig, match;
                 var ports = [];
                 
                 while (match = re.exec(stdout)) {
                     ports.push(match[1]);
                 }
 
+                console.log('ports="' + ports + '"');
+
                 var phantom_pid_command = util.format(cmd, phantom_pid);
 
-                exec(phantom_pid_command, function (err, stdout, stderr) {
+                grepPid(phantom_pid_command, ports,  1, callback);
+
+                /*
+                 * exec(phantom_pid_command, function (err, stdout, stderr) {
                     if (err !== null) {
                         phantom.kill();
-                        return callback("Error executing command to extract phantom ports: " + err);
+                        return callback("Error executing command to extract phantom ports: " + util.inspect(err));
                     }
                     var port;
                     while (match = re.exec(stdout)) {
@@ -188,6 +230,7 @@ exports.create = function (callback, options) {
 
                     callback(null, phantom, port);
                 });
+               */
             });
         });
 
