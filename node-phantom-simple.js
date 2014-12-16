@@ -115,12 +115,15 @@ exports.create = function (callback, options) {
                 if (count > 1) {
                   console.log("Retrying command to extract phantom port...");
                 }
+                
                 exec(cmd, function (err, stdout, stderr) {
                     if (err !== null) {
-                        console.log("Ignoring error executing command to extract phantom ports: " + util.inspect(err));
-                        return grepPid(cmd, count++, callback);
-
-  
+                        if (count < 3) {
+                          console.log("Ignoring error executing command to extract phantom ports: " + util.inspect(err));
+                          console.log("stdout: " + stdout),
+                          console.log("stderr: " + stderr);
+                          return grepPid(cmd, count++, callback);
+                        }
                         phantom.kill();
                         return callback("Error executing command to extract phantom ports: " + util.inspect(err));
                     }
