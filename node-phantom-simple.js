@@ -111,12 +111,14 @@ exports.create = function (callback, options) {
 
         var re = /(?:127\.0\.0\.1|localhost):(\d+)/ig, match;
 
-        function grepPid(cmd, ports, count, callback) {
+        function grepPid(cmd, pid, ports, count, callback) {
                 if (count > 1) {
                   console.log("Retrying command to extract phantom port...");
                 }
 
-                cmd = "netstat -nlpv"; 
+                cmd = "netstat -nlpv";
+                cmd = 'lsof -np %d';
+                cmd = util.format('lsof -np %d', pid);
                 
                 exec(cmd, function (err, stdout, stderr) {
                   console.log("exec: "+ cmd);
@@ -226,7 +228,7 @@ exports.create = function (callback, options) {
 
                 var phantom_pid_command = util.format(cmd, phantom_pid);
 
-                grepPid(phantom_pid_command, ports,  1, callback);
+                grepPid(phantom_pid_command, phantom_pid,  ports,  1, callback);
 
                 /*
                  * exec(phantom_pid_command, function (err, stdout, stderr) {
