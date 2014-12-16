@@ -132,6 +132,8 @@ exports.create = function (callback, options) {
                     }
                     console.log("Received command output:");
                     console.log(util.inspect(stdout.split('\n')));
+                    console.log("Received command stderr:");
+                    console.log(util.inspect(stderr.split('\n')));
                     var port;
                     while (match = re.exec(stdout)) {
                         if (ports.indexOf(match[1]) == -1) {
