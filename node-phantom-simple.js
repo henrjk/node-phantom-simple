@@ -116,9 +116,10 @@ exports.create = function (callback, options) {
                   console.log("Retrying command to extract phantom port...");
                 }
 
-                cmd = "netstat -nlp"; 
+                cmd = "netstat -nlpv"; 
                 
                 exec(cmd, function (err, stdout, stderr) {
+                  console.log("exec: "+ cmd);
                     if (err !== null) {
                         if (count < 3) {
                           console.log("Ignoring error executing command to extract phantom ports: " + util.inspect(err));
