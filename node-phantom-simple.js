@@ -112,11 +112,20 @@ exports.create = function (callback, options) {
         var re = /(?:127\.0\.0\.1|localhost):(\d+)/ig, match;
 
         function grepPid(cmd, ports, count, callback) {
+                if (count > 1) {
+                  console.log("Retrying command to extract phantom port...");
+                }
                 exec(cmd, function (err, stdout, stderr) {
                     if (err !== null) {
+                        console.log("Ignoring error executing command to extract phantom ports: " + util.inspect(err));
+                        return grepPid(cmd, count++, callback);
+
+  
                         phantom.kill();
                         return callback("Error executing command to extract phantom ports: " + util.inspect(err));
                     }
+                    console.log("Received command output:");
+                    console.log(util.inspect(stdout.split('\n')));
                     var port;
                     while (match = re.exec(stdout)) {
                         if (ports.indexOf(match[1]) == -1) {
@@ -130,10 +139,11 @@ exports.create = function (callback, options) {
                         return callback("Error extracting port from: " + stdout);
                       } else {
                         console.log("Retrying to obtain phantom port.");
-                        grepPid(cmd, count++, callback);
+                        return grepPid(cmd, count++, callback);
                       }
                     }
 
+                    console.log("Found phantom port: " + port);
                     callback(null, phantom, port);
                 });
          }
