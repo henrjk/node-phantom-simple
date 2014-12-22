@@ -154,9 +154,14 @@ exports.create = function (callback, options) {
                 phantom.kill();
                 return callback("Unexpected output from PhantomJS: " + data);
             }
-            debug("Continue with proper input line");
-
             var phantom_pid = parseInt(matches[1], 0);
+            debug("Continue with proper input line from process " + phantom_pid);
+            if (options.bridgeParameters.port) {
+              callback(null, phantom, '' + options.bridgeParameters.port);
+              return;
+            }
+
+
 
             // Now need to figure out what port it's listening on - since
             // Phantom is busted and can't tell us this we need to use lsof on mac, and netstat on Linux

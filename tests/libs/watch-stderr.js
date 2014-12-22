@@ -16,6 +16,7 @@ module.exports = function() {
     },
     unwatch: function() {
       process.stderr.write = prevWrite;
+      stderrData = [];
     }
   };
 }();

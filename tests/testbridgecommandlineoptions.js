@@ -10,8 +10,7 @@ module.exports = {
     watch_stderr.unwatch();
     callback();
   },
-  testBridgeCommandLineOptions: function (test) {
-    debugger;
+  testBridgeCommandLineOptionsBad: function (test) {
     phantom.create(function (err, ph) {
       test.strictEqual(ph, undefined, "no phantom returned");
       test.strictEqual(err, "Phantom exited with code: 7", "exit code 7");
@@ -20,21 +19,29 @@ module.exports = {
       test.strictEqual(
         data[0].replace(/\n|\r/g, ""),  
         "phantom stderr: phantomjs <full-path>/bridge.js ['help' | 'port' <number>]",
-        "usage information given with wrong arguments"
+        "usage information given when invoked with bad arguments"
       );
-
       test.done();
-
     }, {
-      /*
-      parameters: {
-        "remote-debugger-port": 9000
-      },*/
       bridgeParameters: {
         one: 'nonsense',
         two: 'nonsense2',
-        three: 'nonsense3'}});
-
-    }
+        three: 'nonsense3'}
+    });
+  },
+  testBridgeCommandLineOptionsPort: function (test) {
+    phantom.create(function (err, ph) {
+      test.strictEqual(err, null, "no error (null)");
+      test.ok(ph, "phantom returned");
+      var data = watch_stderr.getData();
+      test.strictEqual(data.length, 0, "no lines on stderr");
+      ph.exit();
+      test.done();
+    }, {
+      bridgeParameters: {
+        port: '8765',
+      }
+    });
+  }
 };
 

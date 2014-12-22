@@ -9,6 +9,41 @@ var page_id = 1;
 
 var callback_stack = [];
 
+console.error = function () {
+    require("system").stderr.write(Array.prototype.join.call(arguments, ' ') + '\n');
+};
+
+// console.error('args:' + system.args);
+// console.error('args.length:' + system.args.length);
+
+function usage() {
+  console.error("phantomjs <full-path>/bridge.js ['help' | 'port' <number>]"); 
+}
+
+
+var default_server =  {
+    hostname: '127.0.0.1',
+    port: 0
+  };
+
+
+if (system.args.length === 1) {
+  server = default_server;
+} else if (system.args.length === 2) {
+  var arg = system.args[1];
+  var aa = arg.split('=');
+  if (aa.length === 2 && aa[0] === '--port') {
+    var n = parseInt(aa[1]); // alternative would be var n = +args2;
+    // NaN will lead to NaN in arithmentic operations.
+    if (n >= 0 && n <= 65535) {
+      server = {
+        hostname: default_server.hostname,
+        port: n
+      };
+    }
+  }
+}
+
 // https://github.com/ariya/phantomjs/issues/12697
 function phantomExit(code) {
   setTimeout(function(){ phantom.exit(code); }, 0);
@@ -26,7 +61,8 @@ phantom.onError = function (msg, trace) {
 	}
 	system.stderr.writeLine(msgStack.join('\n'));
 	phantomExit(1);
-}
+};
+
 
 function page_open (res, page, args) {
 	page.open.apply(page, args.concat(function (success) {
@@ -58,7 +94,15 @@ function include_js (res, page, args) {
 	}));
 }
 
-var service = webserver.listen('127.0.0.1:0', function (req, res) {
+function get_server() {
+  if (server) {
+    return '' + server.hostname + ':' + server.port;
+  } else {
+    return '' + default_server.hostname + ':' + default_server.port; 
+  }
+}
+
+var service = webserver.listen(get_server(), function (req, res) {
 	// console.log("Got a request of type: " + req.method);
 	if (req.method === 'GET') {
 		res.statusCode = 200;
@@ -193,38 +237,6 @@ var global_methods = {
 		phantom[prop] = value;
 		return true;
 	},
-}
-
-
-console.error = function () {
-    require("system").stderr.write(Array.prototype.join.call(arguments, ' ') + '\n');
-};
-
-//console.error('args:' + system.args);
-//console.error('args.length:' + system.args.length);
-
-function usage() {
-  console.error("phantomjs <full-path>/bridge.js ['help' | 'port' <number>]"); 
-}
-
-if (system.args.length === 1) {
-  server = {
-    hostname: '127.0.0.1',
-    port: 0
-  };
-} else if (system.args.length === 3) {
-  var arg1 = system.args[1];
-  var arg2 = system.args[2];
-  if (arg1 === 'port') {
-    var n = parseInt(arg2); // alternative would be var n = +args2;
-    // NaN will lead to NaN in arithmentic operations.
-    if (n >= 0 && n <= 65535) {
-      server = {
-        hostname: '127.0.0.1',
-        port: n
-      };
-    }
-  } 
 }
 
 if (!server) {
