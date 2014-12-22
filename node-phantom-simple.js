@@ -1,9 +1,12 @@
 "use strict";
 
+/* global require, exports, console, process, setTimeout, __dirname */
+
 var http            = require('http');
 var spawn 			= require('child_process').spawn;
 var exec            = require('child_process').exec;
 var util            = require('util');
+var debug = require('debug')('node-phantom-simple');
 
 var POLL_INTERVAL   = process.env.POLL_INTERVAL || 500;
 
@@ -21,13 +24,13 @@ var queue = function (worker) {
             var cb = function () {
                 running = false;
                 q.process();
-            }
+            };
             var task = _q.shift();
             worker(task, cb);
         }
-    }
+    };
     return q;
-}
+};
 
 function callbackOrDummy (callback, poll_func) {
     if (!callback) return function () {};
@@ -39,7 +42,7 @@ function callbackOrDummy (callback, poll_func) {
                 // console.log("Inside...");
                 callback.apply(null, args);
             });
-        }
+        };
     }
     else {
         return callback;
@@ -47,7 +50,7 @@ function callbackOrDummy (callback, poll_func) {
 }
 
 function unwrapArray (arr) {
-    return arr && arr.length == 1 ? arr[0] : arr
+    return arr && arr.length == 1 ? arr[0] : arr;
 }
 
 function wrapArray(arr) {
@@ -55,17 +58,43 @@ function wrapArray(arr) {
     return (arr instanceof Array) ? arr : [arr];
 }
 
+
+
 exports.create = function (callback, options) {
     if (options === undefined) options = {};
     if (options.phantomPath === undefined) options.phantomPath = 'phantomjs';
     if (options.parameters === undefined) options.parameters = {};
+    if (options.bridgeParameters === undefined) options.bridgeParameters = {};
 
-    function spawnPhantom (callback) {
+    debug('node-phantom-simple.create called.');
+
+
+    function spawnPhantom (spCallback) {
         var args=[];
         for(var parm in options.parameters) {
             args.push('--' + parm + '=' + options.parameters[parm]);
         }
         args = args.concat([__dirname + '/bridge.js']);
+        for(parm in options.bridgeParameters) {
+            args.push('--' + parm + '=' + options.bridgeParameters[parm]);
+        }
+
+        var spCallbackCalled = false;
+        var callback = function() {
+          spCallbackCalled = true;
+          spCallback.apply(this, arguments);
+        };
+
+        var exitCode = 0;
+
+        function checkPhantomExited() {
+          var exited = exitCode !== 0;
+          if (exited && ! spCallbackCalled) {
+            debug("Phantom exited code: " + exitCode + ". calling callback)");
+            callback("Phantom exited with code: " + exitCode);
+          }
+          return exited; 
+        }
 
         var phantom = spawn(options.phantomPath, args);
 
@@ -99,8 +128,9 @@ exports.create = function (callback, options) {
             }
             return console.warn('phantom stderr: '+data);
         });
-        var exitCode = 0;
+         
         phantom.once('exit', function (code) {
+            debug("received phantom exit event code = " + code);
             ['SIGINT', 'SIGTERM'].forEach(function(sig) {
                 process.removeListener(sig, closeChild);
             });
@@ -110,16 +140,21 @@ exports.create = function (callback, options) {
 
         // Wait for "Ready" line
         phantom.stdout.once('data', function (data) {
+            debug("received phantom stdout data");
+
             // setup normal listener now
             phantom.stdout.on('data', function (data) {
                 return console.log('phantom stdout: '+data);
             });
-            
-            var matches = data.toString().match(/Ready \[(\d+)\]/);
+
+            var input = data.toString();
+            var matches = input.match(/Ready \[(\d+)\]/);
             if (!matches) {
+                debug("Stdin does not match /Ready line. Killing phantom an being done");
                 phantom.kill();
                 return callback("Unexpected output from PhantomJS: " + data);
             }
+            debug("Continue with proper input line");
 
             var phantom_pid = parseInt(matches[1], 0);
 
@@ -191,12 +226,13 @@ exports.create = function (callback, options) {
             });
         });
 
-        setTimeout(function () {    //wait a bit to see if the spawning of phantomjs immediately fails due to bad path or similar
-        	if (exitCode !== 0) {
-        		return callback("Phantom immediately exited with: " + exitCode);
-        	}
+        setTimeout(function checkExitAndReschedule() {    //wait a bit to see if the spawning of phantomjs immediately fails due to bad path or similar
+          debug("Timeout handler");
+          if (!checkPhantomExited() && !spCallbackCalled) {
+            setTimeout(checkExitAndReschedule, 100);
+          } 
         },100);
-    };
+    }
     
     spawnPhantom(function (err, phantom, port) {
         if (err) {

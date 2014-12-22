@@ -2,10 +2,19 @@ var webpage     = require('webpage');
 var webserver   = require('webserver').create();
 var system      = require('system');
 
+var server ;
+
 var pages  = {};
 var page_id = 1;
 
 var callback_stack = [];
+
+// https://github.com/ariya/phantomjs/issues/12697
+function phantomExit(code) {
+  setTimeout(function(){ phantom.exit(code); }, 0);
+  //phantom.exit(code);
+  phantom.onError = function(){};
+}
 
 phantom.onError = function (msg, trace) {
 	var msgStack = ['PHANTOM ERROR: ' + msg];
@@ -16,7 +25,7 @@ phantom.onError = function (msg, trace) {
 	    });
 	}
 	system.stderr.writeLine(msgStack.join('\n'));
-	phantom.exit(1);
+	phantomExit(1);
 }
 
 function page_open (res, page, args) {
@@ -161,7 +170,7 @@ var global_methods = {
 	},
 
 	exit: function (code) {
-		return phantom.exit(code);
+		return phantomExit(code);
 	},
 
 	addCookie: function (cookie) {
@@ -186,4 +195,43 @@ var global_methods = {
 	},
 }
 
-console.log("Ready [" + system.pid + "]");
+
+console.error = function () {
+    require("system").stderr.write(Array.prototype.join.call(arguments, ' ') + '\n');
+};
+
+//console.error('args:' + system.args);
+//console.error('args.length:' + system.args.length);
+
+function usage() {
+  console.error("phantomjs <full-path>/bridge.js ['help' | 'port' <number>]"); 
+}
+
+if (system.args.length === 1) {
+  server = {
+    hostname: '127.0.0.1',
+    port: 0
+  };
+} else if (system.args.length === 3) {
+  var arg1 = system.args[1];
+  var arg2 = system.args[2];
+  if (arg1 === 'port') {
+    var n = parseInt(arg2); // alternative would be var n = +args2;
+    // NaN will lead to NaN in arithmentic operations.
+    if (n >= 0 && n <= 65535) {
+      server = {
+        hostname: '127.0.0.1',
+        port: n
+      };
+    }
+  } 
+}
+
+if (!server) {
+  usage();
+  phantomExit(7);
+} else {
+  console.log("Ready [" + system.pid + "]");
+}
+
+

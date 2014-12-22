@@ -13,9 +13,10 @@
     "test": "./run_tests"
   },
   "dependencies": {
+    "debug": "^2.1.0"
   },
   "devDependencies": {
-    "nodeunit" : ""
+    "nodeunit": ""
   },
   "optionalDependencies": {},
   "engines": {
